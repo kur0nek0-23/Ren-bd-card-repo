@@ -21,6 +21,8 @@
             --celebration-delay-ms: 600;
             /* Delay before first lighting the candles, in milliseconds. */
             --initial-candle-light-delay-ms: 850;
+            /* Wait until the page-turn animation has completed before requesting mic access. */
+            --mic-permission-delay-ms: 900;
             --background-audio-volume: 0.35;
             --background-audio-fade-ms: 600;
         }
@@ -460,6 +462,17 @@
             });
         }
 
+        let microphoneRequestTimer;
+
+        function requestMicrophoneForOpenPage() {
+            clearTimeout(microphoneRequestTimer);
+            const delay = Number.parseFloat(getComputedStyle(document.documentElement)
+                .getPropertyValue('--mic-permission-delay-ms')) || 900;
+            microphoneRequestTimer = setTimeout(() => {
+                if (book.classList.contains('state-open')) startAudio();
+            }, delay);
+        }
+
         function unlockDelayedSounds() {
             if (delayedSoundsUnlocked) return;
             delayedSoundsUnlocked = true;
@@ -491,7 +504,7 @@
                 }, Number.parseFloat(getComputedStyle(document.documentElement)
                     .getPropertyValue('--initial-candle-light-delay-ms')) || 850);
             }
-            startAudio(); // Initialize mic when user first interacts
+            requestMicrophoneForOpenPage();
         });
 
         // Tap left page (letter) -> Close back to front cover
@@ -499,6 +512,7 @@
             playSound(sounds.pageTurn);
             book.className = 'book state-closed-front';
             stopBackgroundSound();
+            clearTimeout(microphoneRequestTimer);
         });
 
         // Tap right page (cake) -> Close to back cover
@@ -508,6 +522,7 @@
             playSound(sounds.pageTurn);
             book.className = 'book state-closed-back';
             stopBackgroundSound();
+            clearTimeout(microphoneRequestTimer);
         });
 
         // Tap back cover -> Open back to spread
@@ -515,6 +530,7 @@
             playSound(sounds.pageTurn);
             book.className = 'book state-open';
             startBackgroundSound();
+            requestMicrophoneForOpenPage();
         });
 
 
@@ -533,12 +549,16 @@
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                await audioContext.resume();
                 analyser = audioContext.createAnalyser();
                 microphone = audioContext.createMediaStreamSource(stream);
                 microphone.connect(analyser);
                 analyser.fftSize = 256;
                 audioDataArray = new Uint8Array(analyser.frequencyBinCount);
                 document.getElementById('mic-widget').classList.remove('is-hidden');
+                if (book.classList.contains('state-open')) {
+                    backgroundSound.play().catch(() => {});
+                }
                 checkAudio();
             } catch (err) {
                 console.warn("Microphone access denied or unavailable (requires HTTPS/Localhost).", err);
