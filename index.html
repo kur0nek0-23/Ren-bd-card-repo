@@ -17,6 +17,10 @@
             --wish-message-offset-y: 0px;
             --relight-button-offset-x: 0px;
             --relight-button-offset-y: 110px;
+            /* Delay before showing the wish message and confetti, in milliseconds. */
+            --celebration-delay-ms: 600;
+            /* Delay before first lighting the candles, in milliseconds. */
+            --initial-candle-light-delay-ms: 850;
         }
 
         @font-face {
@@ -227,10 +231,23 @@
             opacity: 0;
             transform: scale(0);
         }
+        .flame.unlit {
+            opacity: 0;
+            transform: scale(0);
+            animation: none;
+        }
+        .flame.lighting {
+            animation: ignite 0.45s ease-out forwards;
+        }
 
         @keyframes flicker {
             0% { transform: scale(1) skewX(0deg); }
             100% { transform: scale(1.05) skewX(2deg); }
+        }
+        @keyframes ignite {
+            0% { opacity: 0; transform: scale(0.2); }
+            65% { opacity: 1; transform: scale(1.2); }
+            100% { opacity: 1; transform: scale(1) skewX(0deg); }
         }
 
         /* Wish Message & Relight */
@@ -249,6 +266,7 @@
             font-size: 28px;
             font-weight: bold;
             font-style: italic;
+            text-shadow: 0 3px 8px rgba(0, 0, 0, 0.35);
             z-index: 15;
             animation: popIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
         }
@@ -267,7 +285,7 @@
             font-size: 14px;
             font-family: inherit;
             cursor: pointer;
-            box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
+            box-shadow: 0 5px 12px rgba(0, 0, 0, 0.28);
         }
 
         @keyframes popIn {
@@ -325,10 +343,10 @@
 
                         <!-- Candles (Positioned roughly where candles usually are, adjust left/top as needed) -->
                         <div class="candle-container" style="left: 38%; top: 55%;">
-                            <div class="flame"></div>
+                            <div class="flame unlit"></div>
                         </div>
                         <div class="candle-container" style="left: 56%; top: 48%;">
-                            <div class="flame"></div>
+                            <div class="flame unlit"></div>
                         </div>
 
                         <!-- Confetti Layer -->
@@ -372,15 +390,39 @@
         const page1Back = document.querySelector('.page1 .back');
         const page2Front = document.querySelector('.page2 .front');
         const page2Back = document.querySelector('.page2 .back');
+        let candlesHaveLit = false;
+        const sounds = {
+            pageTurn: new Audio('Audio/page_turn.mp3'),
+            blowOut: new Audio('Audio/blow_out.mp3'),
+            lighter: new Audio('Audio/lighter.mp3'),
+            celebrate: new Audio('Audio/celebrate.mp3')
+        };
+
+        Object.values(sounds).forEach(sound => sound.preload = 'auto');
+
+        function playSound(sound) {
+            sound.currentTime = 0;
+            sound.play().catch(() => {});
+        }
 
         // Tap front cover -> Open spread
         page1Front.addEventListener('click', () => {
+            playSound(sounds.pageTurn);
             book.className = 'book state-open';
+            if (!candlesHaveLit) {
+                candlesHaveLit = true;
+                setTimeout(() => {
+                    playSound(sounds.lighter);
+                    lightCandles();
+                }, Number.parseFloat(getComputedStyle(document.documentElement)
+                    .getPropertyValue('--initial-candle-light-delay-ms')) || 850);
+            }
             startAudio(); // Initialize mic when user first interacts
         });
 
         // Tap left page (letter) -> Close back to front cover
         page1Back.addEventListener('click', () => {
+            playSound(sounds.pageTurn);
             book.className = 'book state-closed-front';
         });
 
@@ -388,11 +430,13 @@
         page2Front.addEventListener('click', (e) => {
             // Prevent page flip if clicking UI elements (buttons, etc.)
             if(e.target.closest('.interactive-ui')) return;
+            playSound(sounds.pageTurn);
             book.className = 'book state-closed-back';
         });
 
         // Tap back cover -> Open back to spread
         page2Back.addEventListener('click', () => {
+            playSound(sounds.pageTurn);
             book.className = 'book state-open';
         });
 
@@ -467,6 +511,7 @@
         }
 
         function extinguishFlames() {
+            playSound(sounds.blowOut);
             flamesOut = true;
             document.querySelectorAll('.flame').forEach(f => {
                 f.classList.remove('blowing');
@@ -480,7 +525,19 @@
             setTimeout(() => {
                 document.getElementById('wish-message').style.display = 'block';
                 fireConfetti();
-            }, 300);
+                playSound(sounds.celebrate);
+            }, Number.parseFloat(getComputedStyle(document.documentElement)
+                .getPropertyValue('--celebration-delay-ms')) || 700);
+        }
+
+        function lightCandles() {
+            document.querySelectorAll('.flame').forEach(flame => {
+                flame.classList.remove('out', 'blowing', 'unlit');
+                flame.classList.add('lighting');
+            });
+            setTimeout(() => {
+                document.querySelectorAll('.flame').forEach(flame => flame.classList.remove('lighting'));
+            }, 450);
         }
 
         // --- Fallback Button Logic (Hold to Blow) ---
@@ -509,9 +566,10 @@
 
         // --- Relight Button Logic ---
         document.getElementById('btn-relight').addEventListener('click', () => {
+            playSound(sounds.lighter);
             flamesOut = false;
             isBlowing = false;
-            document.querySelectorAll('.flame').forEach(f => f.classList.remove('out', 'blowing'));
+            lightCandles();
             document.getElementById('wish-message').style.display = 'none';
             document.getElementById('confetti-container').innerHTML = '';
             document.getElementById('mic-level').style.width = '0%';
