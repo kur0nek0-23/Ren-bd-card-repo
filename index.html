@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Happy Birthday, Ren!</title>
+    <style>
+        :root {
+            --book-width: 400px;
+            --book-height: 560px;
+            --kraft-bg: #d4bda5;
+            /* Adjust these values to reposition the birthday wish and button. */
+            --wish-message-top: 25%;
+            --wish-message-left: 50%;
+            --wish-message-offset-x: 0px;
+            --wish-message-offset-y: 0px;
+            --relight-button-offset-x: 0px;
+            --relight-button-offset-y: 110px;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background: var(--kraft-bg);
+            /* Kraft paper noise texture effect */
+            background-image: 
+                url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.5' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100' height='100' filter='url(%23n)' opacity='0.12'/%3E%3C/svg%3E");
+            font-family: 'Georgia', serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+            perspective: 1500px;
+        }
+
+        /* 3D Scene & Book Container */
+        .scene {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            height: 100%;
+            /* Leave space above so it doesn't touch the top */
+            padding-top: 40px; 
+            box-sizing: border-box;
+        }
+
+        .book {
+            position: relative;
+            width: var(--book-width);
+            height: var(--book-height);
+            transform-style: preserve-3d;
+            transition: transform 0.8s cubic-bezier(0.645, 0.045, 0.355, 1);
+        }
+
+        /* Centering States */
+        /* Closed showing front cover: left half of the visual space is empty, center is offset */
+        .state-closed-front { transform: translateX(0); }
+        /* Open spread: visual center is the hinge (left edge of the container) */
+        .state-open { transform: translateX(200px); }
+        /* Closed showing back cover: visual mass is entirely on the left */
+        .state-closed-back { transform: translateX(400px); }
+
+        /* Pages */
+        .page {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            transform-style: preserve-3d;
+            transform-origin: left center;
+            transition: transform 0.8s cubic-bezier(0.645, 0.045, 0.355, 1);
+            cursor: pointer;
+        }
+
+        .face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            border-radius: 4px;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.05), 3px 5px 15px rgba(0,0,0,0.2);
+            overflow: hidden;
+            background: #fff;
+        }
+
+        .face.front { transform: rotateY(0deg); }
+        .face.back { transform: rotateY(180deg); }
+        
+        .bg-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            pointer-events: none;
+        }
+
+        /* Rotation and Layering based on States */
+        .state-closed-front .page1 { transform: rotateY(0deg) translateZ(2px); }
+        .state-closed-front .page2 { transform: rotateY(0deg) translateZ(1px); }
+
+        .state-open .page1 { transform: rotateY(-180deg) translateZ(2px); }
+        .state-open .page2 { transform: rotateY(0deg) translateZ(1px); }
+
+        .state-closed-back .page1 { transform: rotateY(-180deg) translateZ(2px); }
+        .state-closed-back .page2 { transform: rotateY(-180deg) translateZ(1px); }
+
+        /* Interactive UI on Cake Page */
+        .interactive-ui {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; /* Let clicks pass through to page except on buttons */
+            z-index: 10;
+        }
+        
+        .interactive-ui > * {
+            pointer-events: auto;
+        }
+
+        /* Mic Meter */
+        #mic-widget {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.8);
+            border: 1px dashed #a47a59;
+            padding: 8px;
+            border-radius: 8px;
+            font-size: 12px;
+            color: #553a29;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
+        }
+        #mic-meter-bg {
+            width: 60px;
+            height: 8px;
+            background: #eee;
+            border-radius: 4px;
+            margin-top: 4px;
+            overflow: hidden;
+        }
+        #mic-level {
+            height: 100%;
+            width: 0%;
+            background: #a47a59;
+            transition: width 0.1s;
+        }
+
+        /* HTTPS/Localhost Warning */
+        #mic-warning {
+            display: none;
+            background: #ffe3e3;
+            color: #900;
+            border: 1px solid #900;
+            padding: 8px;
+            font-size: 11px;
+            margin-top: 5px;
+            border-radius: 4px;
+            max-width: 120px;
+        }
+
+        /* Fallback Blow Button */
+        #btn-blow {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: #8c2a3e;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 6px;
+            font-family: inherit;
+            cursor: pointer;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
+            user-select: none;
+            transition: background 0.2s;
+        }
+        #btn-blow:active { background: #8a6549; }
+
+        /* Candles and Flames */
+        .candle-container {
+            position: absolute;
+            width: 20px;
+            height: 40px;
+            /* Adjust these top/left values to perfectly sit on your cake's candles */
+        }
+        .flame {
+            width: 16px; 
+            height: 32px;
+            /* CSS gradient painted flame - replace with <img src="flame.png"> if using your own cutout */
+            background: radial-gradient(ellipse at bottom, #fff 10%, #ffdf00 40%, #ff8c00 80%, transparent 100%);
+            border-radius: 50% 50% 20% 20% / 60% 60% 30% 30%;
+            box-shadow: 0 -5px 15px rgba(255,140,0,0.6);
+            transition: transform 0.1s ease, opacity 0.4s ease;
+            transform-origin: bottom center;
+            animation: flicker 0.6s infinite alternate;
+            position: absolute;
+            bottom: 0;
+            left: 2px;
+        }
+        .flame.blowing {
+            transform: skewX(-25deg) scale(0.8) rotate(-10deg);
+            animation: none;
+        }
+        .flame.out {
+            opacity: 0;
+            transform: scale(0);
+        }
+
+        @keyframes flicker {
+            0% { transform: scale(1) skewX(0deg); }
+            100% { transform: scale(1.05) skewX(2deg); }
+        }
+
+        /* Wish Message & Relight */
+        #wish-message {
+            display: none;
+            position: absolute;
+            top: var(--wish-message-top);
+            left: var(--wish-message-left);
+            transform: translate(
+                calc(-50% + var(--wish-message-offset-x)),
+                calc(-50% + var(--wish-message-offset-y))
+            );
+            text-align: center;
+            color: #8c2a3e; /* Deep red matching the scrapbook */
+            width: 80%;
+            font-size: 28px;
+            font-weight: bold;
+            font-style: italic;
+            z-index: 15;
+            animation: popIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+        #btn-relight {
+            display: inline-block;
+            margin-top: 15px;
+            transform: translate(
+                var(--relight-button-offset-x),
+                var(--relight-button-offset-y)
+            );
+            background: #fff;
+            color: #8c2a3e;
+            border: 2px solid #8c2a3e;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-family: inherit;
+            cursor: pointer;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
+        }
+
+        @keyframes popIn {
+            0% {
+                opacity: 0;
+                transform: translate(
+                    calc(-50% + var(--wish-message-offset-x)),
+                    calc(-40% + var(--wish-message-offset-y))
+                ) scale(0.8);
+            }
+            100% {
+                opacity: 1;
+                transform: translate(
+                    calc(-50% + var(--wish-message-offset-x)),
+                    calc(-50% + var(--wish-message-offset-y))
+                ) scale(1);
+            }
+        }
+
+        /* Confetti */
+        #confetti-container {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            overflow: hidden;
+            z-index: 12;
+        }
+        @keyframes fall {
+            to { top: 110%; transform: rotate(720deg); }
+        }
+
+        /* Responsive scaling */
+        @media (max-width: 900px) { .scene { transform: scale(0.8); } }
+        @media (max-width: 650px) { .scene { transform: scale(0.5); } }
+    </style>
+</head>
+<body>
+
+    <div class="scene">
+        <!-- The Book: Initial state is closed showing front cover -->
+        <div class="book state-closed-front" id="book">
+            
+            <!-- PAGE 2: Right side of the book (Cake / Back Cover) -->
+            <div class="page page2" id="page2">
+                <div class="face front">
+                    <img src="3.png" class="bg-img" alt="Cake Page">
+                    
+                    <div class="interactive-ui">
+                        <!-- Mic Meter & Warning -->
+                        <div id="mic-widget">
+                            Mic Level
+                            <div id="mic-meter-bg"><div id="mic-level"></div></div>
+                            <div id="mic-warning">Mic needs HTTPS hosting to work! Use button below.</div>
+                        </div>
+
+                        <!-- Candles (Positioned roughly where candles usually are, adjust left/top as needed) -->
+                        <div class="candle-container" style="left: 38%; top: 55%;">
+                            <div class="flame"></div>
+                        </div>
+                        <div class="candle-container" style="left: 56%; top: 48%;">
+                            <div class="flame"></div>
+                        </div>
+
+                        <!-- Confetti Layer -->
+                        <div id="confetti-container"></div>
+
+                        <!-- Wish Message -->
+                        <div id="wish-message">
+                            Make a wish, Ren! <br>
+                            <button id="btn-relight">Relight Candles</button>
+                        </div>
+
+                        <!-- Fallback Button -->
+                        <button id="btn-blow">Hold to Blow</button>
+                    </div>
+                </div>
+                
+                <div class="face back">
+                    <img src="4.png" class="bg-img" alt="Back Cover">
+                </div>
+            </div>
+
+            <!-- PAGE 1: Left side of the book (Front Cover / Letter) -->
+            <!-- Placed second in HTML so its 3D depth logic resolves cleanly on load -->
+            <div class="page page1" id="page1">
+                <div class="face front">
+                    <img src="1.png" class="bg-img" alt="Front Cover">
+                </div>
+                
+                <div class="face back">
+                    <img src="2.png" class="bg-img" alt="Letter Page">
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // --- Navigation Logic ---
+        const book = document.getElementById('book');
+        const page1Front = document.querySelector('.page1 .front');
+        const page1Back = document.querySelector('.page1 .back');
+        const page2Front = document.querySelector('.page2 .front');
+        const page2Back = document.querySelector('.page2 .back');
+
+        // Tap front cover -> Open spread
+        page1Front.addEventListener('click', () => {
+            book.className = 'book state-open';
+            startAudio(); // Initialize mic when user first interacts
+        });
+
+        // Tap left page (letter) -> Close back to front cover
+        page1Back.addEventListener('click', () => {
+            book.className = 'book state-closed-front';
+        });
+
+        // Tap right page (cake) -> Close to back cover
+        page2Front.addEventListener('click', (e) => {
+            // Prevent page flip if clicking UI elements (buttons, etc.)
+            if(e.target.closest('.interactive-ui')) return;
+            book.className = 'book state-closed-back';
+        });
+
+        // Tap back cover -> Open back to spread
+        page2Back.addEventListener('click', () => {
+            book.className = 'book state-open';
+        });
+
+
+        // --- Audio & Candle Logic ---
+        let audioContext;
+        let analyser;
+        let microphone;
+        let isBlowing = false;
+        let blowStartTime = 0;
+        let flamesOut = false;
+        let checkAudioFrame;
+
+        async function startAudio() {
+            if (audioContext) return; 
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioContext.createAnalyser();
+                microphone = audioContext.createMediaStreamSource(stream);
+                microphone.connect(analyser);
+                analyser.fftSize = 256;
+                checkAudio();
+            } catch (err) {
+                console.warn("Microphone access denied or unavailable (requires HTTPS/Localhost).", err);
+                document.getElementById('mic-warning').style.display = 'block';
+            }
+        }
+
+        function checkAudio() {
+            if (flamesOut) return;
+            checkAudioFrame = requestAnimationFrame(checkAudio);
+            
+            const dataArray = new Uint8Array(analyser.frequencyBinCount);
+            analyser.getByteFrequencyData(dataArray);
+            
+            let sum = 0;
+            for(let i = 0; i < dataArray.length; i++) {
+                sum += dataArray[i];
+            }
+            let average = sum / dataArray.length;
+
+            // Update UI Meter
+            document.getElementById('mic-level').style.width = Math.min(100, average * 1.5) + '%';
+
+            // Threshold for blowing detected (~35 is a good baseline, adjust if needed)
+            if (average > 35) {
+                processBlow(true);
+            } else {
+                processBlow(false);
+            }
+        }
+
+        function processBlow(active) {
+            if (flamesOut) return;
+            const flames = document.querySelectorAll('.flame');
+            
+            if (active) {
+                flames.forEach(f => f.classList.add('blowing'));
+                if (!isBlowing) {
+                    isBlowing = true;
+                    blowStartTime = Date.now();
+                } else if (Date.now() - blowStartTime > 500) {
+                    // Blow held for 0.5 seconds
+                    extinguishFlames();
+                }
+            } else {
+                flames.forEach(f => f.classList.remove('blowing'));
+                isBlowing = false;
+            }
+        }
+
+        function extinguishFlames() {
+            flamesOut = true;
+            document.querySelectorAll('.flame').forEach(f => {
+                f.classList.remove('blowing');
+                f.classList.add('out');
+            });
+            
+            document.getElementById('mic-level').style.width = '0%';
+            
+            // Show Message and Confetti
+            setTimeout(() => {
+                document.getElementById('wish-message').style.display = 'block';
+                fireConfetti();
+            }, 300);
+        }
+
+        // --- Fallback Button Logic (Hold to Blow) ---
+        const btnBlow = document.getElementById('btn-blow');
+        let fallbackBlowInterval;
+
+        const startFallbackBlow = (e) => {
+            e.preventDefault();
+            processBlow(true);
+            fallbackBlowInterval = setInterval(() => processBlow(true), 100);
+        };
+        const stopFallbackBlow = (e) => {
+            e.preventDefault();
+            processBlow(false);
+            clearInterval(fallbackBlowInterval);
+        };
+
+        btnBlow.addEventListener('mousedown', startFallbackBlow);
+        btnBlow.addEventListener('mouseup', stopFallbackBlow);
+        btnBlow.addEventListener('mouseleave', stopFallbackBlow);
+        btnBlow.addEventListener('touchstart', startFallbackBlow, {passive: false});
+        btnBlow.addEventListener('touchend', stopFallbackBlow);
+
+
+        // --- Relight Button Logic ---
+        document.getElementById('btn-relight').addEventListener('click', () => {
+            flamesOut = false;
+            isBlowing = false;
+            document.querySelectorAll('.flame').forEach(f => f.classList.remove('out', 'blowing'));
+            document.getElementById('wish-message').style.display = 'none';
+            document.getElementById('confetti-container').innerHTML = '';
+            
+            // Restart audio checking if we have mic access
+            if (audioContext && audioContext.state === 'running') {
+                checkAudio();
+            }
+        });
+
+
+        // --- Confetti Effect ---
+        function fireConfetti() {
+            const colors = ['#e6a39d', '#9ec3e6', '#e0d8b4', '#d4a373', '#b48def'];
+            const container = document.getElementById('confetti-container');
+            container.innerHTML = '';
+            
+            for(let i=0; i<60; i++) {
+                let conf = document.createElement('div');
+                conf.style.position = 'absolute';
+                conf.style.width = (Math.random() * 8 + 5) + 'px';
+                conf.style.height = (Math.random() * 8 + 5) + 'px';
+                conf.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                conf.style.left = (Math.random() * 100) + '%';
+                conf.style.top = '-20px';
+                conf.style.opacity = Math.random() + 0.6;
+                conf.style.transform = `rotate(${Math.random() * 360}deg)`;
+                conf.style.animation = `fall ${Math.random() * 2 + 2}s linear forwards`;
+                container.appendChild(conf);
+            }
+        }
+    </script>
+</body>
+</html>
