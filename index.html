@@ -59,6 +59,7 @@
             width: var(--book-width);
             height: var(--book-height);
             transform-style: preserve-3d;
+            will-change: transform;
             transition: transform 0.8s cubic-bezier(0.645, 0.045, 0.355, 1);
         }
 
@@ -79,6 +80,7 @@
             height: 100%;
             transform-style: preserve-3d;
             transform-origin: left center;
+            will-change: transform;
             transition: transform 0.8s cubic-bezier(0.645, 0.045, 0.355, 1);
             cursor: pointer;
         }
@@ -319,7 +321,10 @@
 
         /* Responsive scaling */
         @media (max-width: 900px) { .scene { transform: scale(0.8); } }
-        @media (max-width: 650px) { .scene { transform: scale(0.5); } }
+        @media (max-width: 650px) {
+            .scene { transform: scale(0.5); }
+            .face { box-shadow: inset 0 0 12px rgba(0,0,0,0.05), 0 0 18px 2px rgba(0, 0, 0, 0.2); }
+        }
     </style>
 </head>
 <body>
@@ -399,14 +404,33 @@
         };
 
         Object.values(sounds).forEach(sound => sound.preload = 'auto');
+        let delayedSoundsUnlocked = false;
 
         function playSound(sound) {
             sound.currentTime = 0;
             sound.play().catch(() => {});
         }
 
+        function unlockDelayedSounds() {
+            if (delayedSoundsUnlocked) return;
+            delayedSoundsUnlocked = true;
+
+            [sounds.blowOut, sounds.lighter, sounds.celebrate].forEach(sound => {
+                const volume = sound.volume;
+                sound.volume = 0;
+                sound.play().then(() => {
+                    sound.pause();
+                    sound.currentTime = 0;
+                    sound.volume = volume;
+                }).catch(() => {
+                    sound.volume = volume;
+                });
+            });
+        }
+
         // Tap front cover -> Open spread
         page1Front.addEventListener('click', () => {
+            unlockDelayedSounds();
             playSound(sounds.pageTurn);
             book.className = 'book state-open';
             if (!candlesHaveLit) {
@@ -449,6 +473,7 @@
         let blowStartTime = 0;
         let flamesOut = false;
         let checkAudioFrame;
+        let audioDataArray;
 
         async function startAudio() {
             if (audioContext) return; 
@@ -459,6 +484,7 @@
                 microphone = audioContext.createMediaStreamSource(stream);
                 microphone.connect(analyser);
                 analyser.fftSize = 256;
+                audioDataArray = new Uint8Array(analyser.frequencyBinCount);
                 document.getElementById('mic-widget').classList.remove('is-hidden');
                 checkAudio();
             } catch (err) {
@@ -471,14 +497,13 @@
             if (flamesOut) return;
             checkAudioFrame = requestAnimationFrame(checkAudio);
             
-            const dataArray = new Uint8Array(analyser.frequencyBinCount);
-            analyser.getByteFrequencyData(dataArray);
+            analyser.getByteFrequencyData(audioDataArray);
             
             let sum = 0;
-            for(let i = 0; i < dataArray.length; i++) {
-                sum += dataArray[i];
+            for(let i = 0; i < audioDataArray.length; i++) {
+                sum += audioDataArray[i];
             }
-            let average = sum / dataArray.length;
+            let average = sum / audioDataArray.length;
 
             // Update UI Meter
             document.getElementById('mic-level').style.width = Math.min(100, average * 1.5) + '%';
