@@ -6,8 +6,9 @@
     <title>Happy Birthday, Ren!</title>
     <style>
         :root {
-            --book-width: 400px;
-            --book-height: 560px;
+            /* Adjust these two values to resize the entire postcard. */
+            --book-width: 460px;
+            --book-height: 644px;
             --kraft-bg: #d4bda5;
             /* Adjust these values to reposition the birthday wish and button. */
             --wish-message-top: 25%;
@@ -18,13 +19,16 @@
             --relight-button-offset-y: 110px;
         }
 
+        @font-face {
+            font-family: 'Awesome Lathusca';
+            src: url('awesome_lathusca/Awesome%20Lathusca.ttf') format('truetype');
+            font-display: swap;
+        }
+
         body {
             margin: 0;
             padding: 0;
-            background: var(--kraft-bg);
-            /* Kraft paper noise texture effect */
-            background-image: 
-                url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.5' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100' height='100' filter='url(%23n)' opacity='0.12'/%3E%3C/svg%3E");
+            background: var(--kraft-bg) url('bgimg.jpg') center / cover no-repeat;
             font-family: 'Georgia', serif;
             display: flex;
             justify-content: center;
@@ -58,9 +62,9 @@
         /* Closed showing front cover: left half of the visual space is empty, center is offset */
         .state-closed-front { transform: translateX(0); }
         /* Open spread: visual center is the hinge (left edge of the container) */
-        .state-open { transform: translateX(200px); }
+        .state-open { transform: translateX(calc(var(--book-width) * 0.5)); }
         /* Closed showing back cover: visual mass is entirely on the left */
-        .state-closed-back { transform: translateX(400px); }
+        .state-closed-back { transform: translateX(var(--book-width)); }
 
         /* Pages */
         .page {
@@ -121,18 +125,35 @@
         /* Mic Meter */
         #mic-widget {
             position: absolute;
-            top: 20px;
-            right: 20px;
-            background: rgba(255, 255, 255, 0.8);
-            border: 1px dashed #a47a59;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            
+            
             padding: 8px;
             border-radius: 8px;
-            font-size: 12px;
-            color: #553a29;
+            font-size: 16px;
+            font-style: bold;
+            color: #323230;
+            text-shadow: rgb(113, 96, 96);
+            text-align: center;
             box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
+            opacity: 1;
+            visibility: visible;
+            transition: opacity 0.45s ease, visibility 0s linear 0s;
+        }
+        #mic-widget.is-hidden {
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.45s ease, visibility 0s linear 0.45s;
+        }
+        #mic-widget .mic-title {
+            font-family: 'Awesome Lathusca', cursive;
+            font-weight: bold;
+            text-shadow: 0 3px 6px rgba(0, 0, 0, 0.35);
         }
         #mic-meter-bg {
-            width: 60px;
+            width: 200px;
             height: 8px;
             background: #eee;
             border-radius: 4px;
@@ -142,7 +163,7 @@
         #mic-level {
             height: 100%;
             width: 0%;
-            background: #a47a59;
+            background: linear-gradient(90deg, #f3a75f 0%, #d96b6b 50%, #a45959 100%);
             transition: width 0.1s;
         }
 
@@ -171,7 +192,7 @@
             border-radius: 6px;
             font-family: inherit;
             cursor: pointer;
-            box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
+            box-shadow: 2px 2px 5px rgba(179, 36, 36, 0.2);
             user-select: none;
             transition: background 0.2s;
         }
@@ -235,8 +256,8 @@
             display: inline-block;
             margin-top: 15px;
             transform: translate(
-                var(--relight-button-offset-x),
-                var(--relight-button-offset-y)
+                var(--relight-button-offset-x, 0px),
+                var(--relight-button-offset-y, 0px)
             );
             background: #fff;
             color: #8c2a3e;
@@ -296,8 +317,8 @@
                     
                     <div class="interactive-ui">
                         <!-- Mic Meter & Warning -->
-                        <div id="mic-widget">
-                            Mic Level
+                        <div id="mic-widget" class="is-hidden">
+                            <span class="mic-title">Keep Blowing</span>
                             <div id="mic-meter-bg"><div id="mic-level"></div></div>
                             <div id="mic-warning">Mic needs HTTPS hosting to work! Use button below.</div>
                         </div>
@@ -320,7 +341,7 @@
                         </div>
 
                         <!-- Fallback Button -->
-                        <button id="btn-blow">Hold to Blow</button>
+                        
                     </div>
                 </div>
                 
@@ -394,6 +415,7 @@
                 microphone = audioContext.createMediaStreamSource(stream);
                 microphone.connect(analyser);
                 analyser.fftSize = 256;
+                document.getElementById('mic-widget').classList.remove('is-hidden');
                 checkAudio();
             } catch (err) {
                 console.warn("Microphone access denied or unavailable (requires HTTPS/Localhost).", err);
@@ -451,7 +473,8 @@
                 f.classList.add('out');
             });
             
-            document.getElementById('mic-level').style.width = '0%';
+            document.getElementById('mic-level').style.width = '100%';
+            setTimeout(() => document.getElementById('mic-widget').classList.add('is-hidden'), 150);
             
             // Show Message and Confetti
             setTimeout(() => {
@@ -475,11 +498,13 @@
             clearInterval(fallbackBlowInterval);
         };
 
-        btnBlow.addEventListener('mousedown', startFallbackBlow);
-        btnBlow.addEventListener('mouseup', stopFallbackBlow);
-        btnBlow.addEventListener('mouseleave', stopFallbackBlow);
-        btnBlow.addEventListener('touchstart', startFallbackBlow, {passive: false});
-        btnBlow.addEventListener('touchend', stopFallbackBlow);
+        if (btnBlow) {
+            btnBlow.addEventListener('mousedown', startFallbackBlow);
+            btnBlow.addEventListener('mouseup', stopFallbackBlow);
+            btnBlow.addEventListener('mouseleave', stopFallbackBlow);
+            btnBlow.addEventListener('touchstart', startFallbackBlow, {passive: false});
+            btnBlow.addEventListener('touchend', stopFallbackBlow);
+        }
 
 
         // --- Relight Button Logic ---
@@ -489,6 +514,8 @@
             document.querySelectorAll('.flame').forEach(f => f.classList.remove('out', 'blowing'));
             document.getElementById('wish-message').style.display = 'none';
             document.getElementById('confetti-container').innerHTML = '';
+            document.getElementById('mic-level').style.width = '0%';
+            document.getElementById('mic-widget').classList.remove('is-hidden');
             
             // Restart audio checking if we have mic access
             if (audioContext && audioContext.state === 'running') {
