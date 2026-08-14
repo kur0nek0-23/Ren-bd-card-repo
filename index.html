@@ -62,9 +62,83 @@
             position: relative;
             width: var(--book-width);
             height: var(--book-height);
+            opacity: 0;
             transform-style: preserve-3d;
             will-change: transform;
             transition: transform 0.8s cubic-bezier(0.645, 0.045, 0.355, 1);
+        }
+        .book.is-ready {
+            opacity: 1;
+            animation: postcard-enter 0.9s cubic-bezier(0.22, 0.8, 0.28, 1) backwards;
+        }
+
+        #start-gate {
+            position: fixed;
+            inset: 0;
+            z-index: 100;
+            display: grid;
+            place-items: center;
+            background: rgba(0, 0, 0, 0.18);
+            opacity: 1;
+            transition: opacity 0.45s ease;
+        }
+        #start-gate.is-leaving {
+            opacity: 0;
+            pointer-events: none;
+        }
+        #btn-start-experience {
+            position: relative;
+            min-width: 180px;
+            padding: 12px 22px;
+            border: 2px solid #8c2a3e;
+            border-radius: 24px;
+            background: #fff;
+            color: #8c2a3e;
+            font: bold 16px Georgia, serif;
+            cursor: pointer;
+            box-shadow: 0 5px 16px rgba(0, 0, 0, 0.3);
+            animation: start-button-enter 0.55s cubic-bezier(0.18, 0.9, 0.32, 1.2) 0.15s backwards;
+        }
+        @keyframes start-button-enter {
+            from {
+                opacity: 0;
+                transform: translateY(18px) scale(0.88);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+        .start-label {
+            display: block;
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+        .start-label-preparing {
+            position: absolute;
+            inset: 0;
+            display: grid;
+            place-items: center;
+            opacity: 0;
+            transform: translateY(8px);
+        }
+        #btn-start-experience.is-preparing .start-label-open {
+            opacity: 0;
+            transform: translateY(-8px);
+        }
+        #btn-start-experience.is-preparing .start-label-preparing {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        @keyframes postcard-enter {
+            from {
+                opacity: 0;
+                transform: translateY(120vh) scale(0.94);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
         }
 
         /* Centering States */
@@ -155,6 +229,31 @@
         #mic-widget.is-hidden {
             opacity: 0;
             visibility: hidden;
+            pointer-events: none;
+            transition: opacity 0.45s ease, visibility 0s linear 0.45s;
+        }
+        #btn-tap-blow {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            min-width: 200px;
+            padding: 10px 18px;
+            border: 2px solid #8c2a3e;
+            border-radius: 22px;
+            background: #fff;
+            color: #8c2a3e;
+            font: bold 16px Georgia, serif;
+            cursor: pointer;
+            box-shadow: 0 5px 12px rgba(0, 0, 0, 0.28);
+            opacity: 1;
+            visibility: visible;
+            transition: opacity 0.45s ease, visibility 0s linear 0s;
+        }
+        #btn-tap-blow.is-hidden {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
             transition: opacity 0.45s ease, visibility 0s linear 0.45s;
         }
         #mic-widget .mic-title {
@@ -275,6 +374,15 @@
             text-shadow: 0 3px 8px rgba(0, 0, 0, 0.35);
             z-index: 15;
             animation: popIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+        #wish-message.is-leaving {
+            opacity: 0;
+            pointer-events: none;
+            transform: translate(
+                calc(-50% + var(--wish-message-offset-x)),
+                calc(-50% + var(--wish-message-offset-y))
+            ) scale(0.94);
         }
         #btn-relight {
             display: inline-block;
@@ -292,6 +400,15 @@
             font-family: inherit;
             cursor: pointer;
             box-shadow: 0 5px 12px rgba(0, 0, 0, 0.28);
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+        #btn-relight.is-leaving {
+            opacity: 0;
+            pointer-events: none;
+            transform: translate(
+                var(--relight-button-offset-x, 0px),
+                var(--relight-button-offset-y, 0px)
+            ) scale(0.88);
         }
 
         @keyframes popIn {
@@ -326,12 +443,22 @@
         /* Responsive scaling */
         @media (max-width: 900px) { .scene { transform: scale(0.8); } }
         @media (max-width: 650px) {
-            .scene { transform: scale(0.5); }
+            .scene {
+                padding-top: 0;
+                transform: scale(0.5);
+                transform-origin: center center;
+            }
             .face { box-shadow: inset 0 0 12px rgba(0,0,0,0.05), 0 0 18px 2px rgba(0, 0, 0, 0.2); }
         }
     </style>
 </head>
 <body>
+    <div id="start-gate">
+        <button id="btn-start-experience" type="button">
+            <span class="start-label start-label-open">Open Postcard</span>
+            <span class="start-label start-label-preparing">Preparing…</span>
+        </button>
+    </div>
 
     <div class="scene">
         <!-- The Book: Initial state is closed showing front cover -->
@@ -349,6 +476,7 @@
                             <div id="mic-meter-bg"><div id="mic-level"></div></div>
                             <div id="mic-warning">Mic needs HTTPS hosting to work! Use button below.</div>
                         </div>
+                        <button id="btn-tap-blow" class="is-hidden">Tap to Blow</button>
 
                         <!-- Candles (Positioned roughly where candles usually are, adjust left/top as needed) -->
                         <div class="candle-container" style="left: 38%; top: 55%;">
@@ -399,6 +527,9 @@
         const page1Back = document.querySelector('.page1 .back');
         const page2Front = document.querySelector('.page2 .front');
         const page2Back = document.querySelector('.page2 .back');
+        const startGate = document.getElementById('start-gate');
+        const btnStartExperience = document.getElementById('btn-start-experience');
+        let grantedMicrophoneStream = null;
         let candlesHaveLit = false;
         const sounds = {
             pageTurn: new Audio('Audio/page_turn.mp3'),
@@ -420,6 +551,25 @@
             sound.currentTime = 0;
             sound.play().catch(() => {});
         }
+
+        function setBookState(state) {
+            book.className = `book is-ready ${state}`;
+        }
+
+        async function startExperience() {
+            btnStartExperience.disabled = true;
+            btnStartExperience.classList.add('is-preparing');
+            try {
+                grantedMicrophoneStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            } catch (err) {
+                console.info('Microphone access was not granted. It can be requested again from Tap to Blow.', err);
+            }
+            book.classList.add('is-ready');
+            startGate.classList.add('is-leaving');
+            setTimeout(() => startGate.remove(), 450);
+        }
+
+        btnStartExperience.addEventListener('click', startExperience, { once: true });
 
         function fadeBackgroundSound(targetVolume, onComplete) {
             cancelAnimationFrame(backgroundFadeFrame);
@@ -494,25 +644,25 @@
         page1Front.addEventListener('click', () => {
             unlockDelayedSounds();
             playSound(sounds.pageTurn);
-            book.className = 'book state-open';
+            setBookState('state-open');
             startBackgroundSound();
             if (!candlesHaveLit) {
                 candlesHaveLit = true;
                 setTimeout(() => {
                     playSound(sounds.lighter);
                     lightCandles();
+                    showTapToBlowButton();
                 }, Number.parseFloat(getComputedStyle(document.documentElement)
                     .getPropertyValue('--initial-candle-light-delay-ms')) || 850);
             }
-            requestMicrophoneForOpenPage();
         });
 
         // Tap left page (letter) -> Close back to front cover
         page1Back.addEventListener('click', () => {
             playSound(sounds.pageTurn);
-            book.className = 'book state-closed-front';
+            setBookState('state-closed-front');
             stopBackgroundSound();
-            clearTimeout(microphoneRequestTimer);
+            stopMicrophoneDetection();
         });
 
         // Tap right page (cake) -> Close to back cover
@@ -520,17 +670,16 @@
             // Prevent page flip if clicking UI elements (buttons, etc.)
             if(e.target.closest('.interactive-ui')) return;
             playSound(sounds.pageTurn);
-            book.className = 'book state-closed-back';
+            setBookState('state-closed-back');
             stopBackgroundSound();
-            clearTimeout(microphoneRequestTimer);
+            stopMicrophoneDetection();
         });
 
         // Tap back cover -> Open back to spread
         page2Back.addEventListener('click', () => {
             playSound(sounds.pageTurn);
-            book.className = 'book state-open';
+            setBookState('state-open');
             startBackgroundSound();
-            requestMicrophoneForOpenPage();
         });
 
 
@@ -543,11 +692,25 @@
         let flamesOut = false;
         let checkAudioFrame;
         let audioDataArray;
+        let microphoneDetectionActive = false;
 
         async function startAudio() {
-            if (audioContext) return; 
+            microphoneDetectionActive = true;
+            if (audioContext) {
+                if (audioContext.state === 'suspended') await audioContext.resume();
+                checkAudio();
+                return;
+            }
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                const hasLiveGrantedStream = grantedMicrophoneStream?.getAudioTracks()
+                    .some(track => track.readyState === 'live');
+                const stream = hasLiveGrantedStream
+                    ? grantedMicrophoneStream
+                    : await navigator.mediaDevices.getUserMedia({ audio: true });
+                grantedMicrophoneStream = stream;
+                if (!microphoneDetectionActive) {
+                    return;
+                }
                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
                 await audioContext.resume();
                 analyser = audioContext.createAnalyser();
@@ -567,7 +730,7 @@
         }
 
         function checkAudio() {
-            if (flamesOut) return;
+            if (flamesOut || !microphoneDetectionActive) return;
             checkAudioFrame = requestAnimationFrame(checkAudio);
             
             analyser.getByteFrequencyData(audioDataArray);
@@ -590,7 +753,7 @@
         }
 
         function processBlow(active) {
-            if (flamesOut) return;
+            if (flamesOut || !microphoneDetectionActive) return;
             const flames = document.querySelectorAll('.flame');
             
             if (active) {
@@ -611,6 +774,8 @@
         function extinguishFlames() {
             playSound(sounds.blowOut);
             flamesOut = true;
+            microphoneDetectionActive = false;
+            cancelAnimationFrame(checkAudioFrame);
             document.querySelectorAll('.flame').forEach(f => {
                 f.classList.remove('blowing');
                 f.classList.add('out');
@@ -621,7 +786,9 @@
             
             // Show Message and Confetti
             setTimeout(() => {
-                document.getElementById('wish-message').style.display = 'block';
+                const wishMessage = document.getElementById('wish-message');
+                wishMessage.classList.remove('is-leaving');
+                wishMessage.style.display = 'block';
                 fireConfetti();
                 playSound(sounds.celebrate);
             }, Number.parseFloat(getComputedStyle(document.documentElement)
@@ -637,6 +804,31 @@
                 document.querySelectorAll('.flame').forEach(flame => flame.classList.remove('lighting'));
             }, 450);
         }
+
+        // --- Tap-to-Blow Control ---
+        const btnTapBlow = document.getElementById('btn-tap-blow');
+
+        function showTapToBlowButton() {
+            btnTapBlow.classList.remove('is-hidden');
+        }
+
+        function stopMicrophoneDetection() {
+            microphoneDetectionActive = false;
+            isBlowing = false;
+            cancelAnimationFrame(checkAudioFrame);
+            document.getElementById('mic-level').style.width = '0%';
+            document.getElementById('mic-widget').classList.add('is-hidden');
+            if (!flamesOut) showTapToBlowButton();
+        }
+
+        btnTapBlow.addEventListener('click', () => {
+            if (flamesOut) return;
+
+            btnTapBlow.classList.add('is-hidden');
+            document.getElementById('mic-widget').classList.remove('is-hidden');
+            document.getElementById('mic-level').style.width = '0%';
+            startAudio();
+        });
 
         // --- Fallback Button Logic (Hold to Blow) ---
         const btnBlow = document.getElementById('btn-blow');
@@ -664,19 +856,20 @@
 
         // --- Relight Button Logic ---
         document.getElementById('btn-relight').addEventListener('click', () => {
+            const wishMessage = document.getElementById('wish-message');
+            wishMessage.classList.add('is-leaving');
             playSound(sounds.lighter);
             flamesOut = false;
             isBlowing = false;
             lightCandles();
-            document.getElementById('wish-message').style.display = 'none';
             document.getElementById('confetti-container').innerHTML = '';
             document.getElementById('mic-level').style.width = '0%';
-            document.getElementById('mic-widget').classList.remove('is-hidden');
-            
-            // Restart audio checking if we have mic access
-            if (audioContext && audioContext.state === 'running') {
-                checkAudio();
-            }
+            document.getElementById('mic-widget').classList.add('is-hidden');
+            showTapToBlowButton();
+            setTimeout(() => {
+                wishMessage.style.display = 'none';
+                wishMessage.classList.remove('is-leaving');
+            }, 300);
         });
 
 
