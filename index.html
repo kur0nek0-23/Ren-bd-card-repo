@@ -21,6 +21,8 @@
             --celebration-delay-ms: 600;
             /* Delay before first lighting the candles, in milliseconds. */
             --initial-candle-light-delay-ms: 850;
+            --background-audio-volume: 0.35;
+            --background-audio-fade-ms: 600;
         }
 
         @font-face {
@@ -402,6 +404,12 @@
             lighter: new Audio('Audio/lighter.mp3'),
             celebrate: new Audio('Audio/celebrate.mp3')
         };
+        const backgroundSound = new Audio('Audio/bgsound.mp3');
+        backgroundSound.preload = 'auto';
+        backgroundSound.loop = false;
+        backgroundSound.volume = 0;
+        let backgroundFadeFrame;
+        let backgroundPlaybackRequest = 0;
 
         Object.values(sounds).forEach(sound => sound.preload = 'auto');
         let delayedSoundsUnlocked = false;
@@ -409,6 +417,47 @@
         function playSound(sound) {
             sound.currentTime = 0;
             sound.play().catch(() => {});
+        }
+
+        function fadeBackgroundSound(targetVolume, onComplete) {
+            cancelAnimationFrame(backgroundFadeFrame);
+            const startVolume = backgroundSound.volume;
+            const duration = Number.parseFloat(getComputedStyle(document.documentElement)
+                .getPropertyValue('--background-audio-fade-ms')) || 600;
+            const startTime = performance.now();
+
+            const updateVolume = (now) => {
+                const progress = Math.min((now - startTime) / duration, 1);
+                backgroundSound.volume = startVolume + (targetVolume - startVolume) * progress;
+                if (progress < 1) {
+                    backgroundFadeFrame = requestAnimationFrame(updateVolume);
+                } else if (onComplete) {
+                    onComplete();
+                }
+            };
+            backgroundFadeFrame = requestAnimationFrame(updateVolume);
+        }
+
+        function startBackgroundSound() {
+            cancelAnimationFrame(backgroundFadeFrame);
+            const request = ++backgroundPlaybackRequest;
+            backgroundSound.pause();
+            backgroundSound.currentTime = 0;
+            backgroundSound.volume = 0;
+            backgroundSound.play().then(() => {
+                if (request !== backgroundPlaybackRequest) return;
+                const volume = Number.parseFloat(getComputedStyle(document.documentElement)
+                    .getPropertyValue('--background-audio-volume')) || 0.35;
+                fadeBackgroundSound(volume);
+            }).catch(() => {});
+        }
+
+        function stopBackgroundSound() {
+            backgroundPlaybackRequest += 1;
+            fadeBackgroundSound(0, () => {
+                backgroundSound.pause();
+                backgroundSound.currentTime = 0;
+            });
         }
 
         function unlockDelayedSounds() {
@@ -433,6 +482,7 @@
             unlockDelayedSounds();
             playSound(sounds.pageTurn);
             book.className = 'book state-open';
+            startBackgroundSound();
             if (!candlesHaveLit) {
                 candlesHaveLit = true;
                 setTimeout(() => {
@@ -448,6 +498,7 @@
         page1Back.addEventListener('click', () => {
             playSound(sounds.pageTurn);
             book.className = 'book state-closed-front';
+            stopBackgroundSound();
         });
 
         // Tap right page (cake) -> Close to back cover
@@ -456,12 +507,14 @@
             if(e.target.closest('.interactive-ui')) return;
             playSound(sounds.pageTurn);
             book.className = 'book state-closed-back';
+            stopBackgroundSound();
         });
 
         // Tap back cover -> Open back to spread
         page2Back.addEventListener('click', () => {
             playSound(sounds.pageTurn);
             book.className = 'book state-open';
+            startBackgroundSound();
         });
 
 
